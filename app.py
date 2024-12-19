@@ -31,19 +31,23 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
 def get_db():
     if 'db' not in g:
-        if IS_POSTGRES:
-            url = urlparse(DATABASE_URL)
-            g.db = psycopg2.connect(
-                dbname=url.path[1:],
-                user=url.username,
-                password=url.password,
-                host=url.hostname,
-                port=url.port
-            )
-            g.db.cursor_factory = DictCursor
-        else:
-            g.db = sqlite3.connect(DATABASE_URL.replace('sqlite:///', ''))
-            g.db.row_factory = sqlite3.Row
+        try:
+            if IS_POSTGRES:
+                url = urlparse(DATABASE_URL)
+                g.db = psycopg2.connect(
+                    dbname=url.path[1:],
+                    user=url.username,
+                    password=url.password,
+                    host=url.hostname,
+                    port=url.port
+                )
+                g.db.cursor_factory = DictCursor
+            else:
+                g.db = sqlite3.connect(DATABASE_URL.replace('sqlite:///', ''))
+                g.db.row_factory = sqlite3.Row
+        except Exception as e:
+            print(f"Database connection error: {str(e)}")
+            raise
     return g.db
 
 @app.teardown_appcontext
@@ -119,21 +123,51 @@ def index():
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
-        
-        db = get_db()
-        if db.execute('SELECT id FROM users WHERE email = ?', (email,)).fetchone():
-            flash('Email already registered')
+        try:
+            email = request.form.get('email')
+            password = request.form.get('password')
+            
+            if not email or not password:
+                flash('Email and password are required')
+                return redirect(url_for('signup'))
+            
+            db = get_db()
+            cursor = db.cursor()
+            
+            # Check if user exists
+            if IS_POSTGRES:
+                cursor.execute('SELECT id FROM users WHERE email = %s', (email,))
+            else:
+                cursor.execute('SELECT id FROM users WHERE email = ?', (email,))
+                
+            if cursor.fetchone():
+                flash('Email already registered')
+                return redirect(url_for('signup'))
+            
+            # Insert new user
+            if IS_POSTGRES:
+                cursor.execute(
+                    'INSERT INTO users (email, password_hash, has_onboarded) VALUES (%s, %s, %s) RETURNING id',
+                    (email, generate_password_hash(password), False)
+                )
+                user_id = cursor.fetchone()[0]
+            else:
+                cursor.execute(
+                    'INSERT INTO users (email, password_hash, has_onboarded) VALUES (?, ?, ?)',
+                    (email, generate_password_hash(password), False)
+                )
+                user_id = cursor.lastrowid
+            
+            db.commit()
+            
+            session['user_id'] = user_id
+            return redirect(url_for('add_first_pet'))
+            
+        except Exception as e:
+            print(f"Signup error: {str(e)}")
+            db.rollback()
+            flash('An error occurred during signup. Please try again.')
             return redirect(url_for('signup'))
-        
-        db.execute('INSERT INTO users (email, password_hash, has_onboarded) VALUES (?, ?, ?)',
-                  (email, generate_password_hash(password), False))
-        db.commit()
-        
-        user_id = db.execute('SELECT id FROM users WHERE email = ?', (email,)).fetchone()[0]
-        session['user_id'] = user_id
-        return redirect(url_for('add_first_pet'))
     
     return render_template('auth/signup.html')
 
@@ -144,7 +178,13 @@ def login():
         password = request.form.get('password')
         
         db = get_db()
-        user = db.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+        cursor = db.cursor()
+        if IS_POSTGRES:
+            cursor.execute('SELECT * FROM users WHERE email = %s', (email,))
+        else:
+            cursor.execute('SELECT * FROM users WHERE email = ?', (email,))
+        
+        user = cursor.fetchone()
         
         if user and check_password_hash(user['password_hash'], password):
             session['user_id'] = user['id']
@@ -166,23 +206,43 @@ def add_first_pet():
         return redirect(url_for('login'))
     
     db = get_db()
-    user = db.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    cursor = db.cursor()
+    if IS_POSTGRES:
+        cursor.execute('SELECT * FROM users WHERE id = %s', (session['user_id'],))
+    else:
+        cursor.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],))
+    
+    user = cursor.fetchone()
     if user['has_onboarded']:
         return redirect(url_for('dashboard'))
     
     if request.method == 'POST':
-        db.execute('''
-            INSERT INTO pets (name, species, breed, age, medical_history, user_id)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (
-            request.form.get('name'),
-            request.form.get('species'),
-            request.form.get('breed'),
-            request.form.get('age'),
-            request.form.get('medical_history'),
-            session['user_id']
-        ))
-        db.execute('UPDATE users SET has_onboarded = ? WHERE id = ?', (True, session['user_id']))
+        if IS_POSTGRES:
+            cursor.execute('''
+                INSERT INTO pets (name, species, breed, age, medical_history, user_id)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            ''', (
+                request.form.get('name'),
+                request.form.get('species'),
+                request.form.get('breed'),
+                request.form.get('age'),
+                request.form.get('medical_history'),
+                session['user_id']
+            ))
+            cursor.execute('UPDATE users SET has_onboarded = %s WHERE id = %s', (True, session['user_id']))
+        else:
+            cursor.execute('''
+                INSERT INTO pets (name, species, breed, age, medical_history, user_id)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (
+                request.form.get('name'),
+                request.form.get('species'),
+                request.form.get('breed'),
+                request.form.get('age'),
+                request.form.get('medical_history'),
+                session['user_id']
+            ))
+            cursor.execute('UPDATE users SET has_onboarded = ? WHERE id = ?', (True, session['user_id']))
         db.commit()
         return redirect(url_for('dashboard'))
     
@@ -194,19 +254,38 @@ def dashboard():
         return redirect(url_for('login'))
     
     db = get_db()
-    user = db.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    cursor = db.cursor()
+    if IS_POSTGRES:
+        cursor.execute('SELECT * FROM users WHERE id = %s', (session['user_id'],))
+    else:
+        cursor.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],))
+    
+    user = cursor.fetchone()
     if not user['has_onboarded']:
         return redirect(url_for('add_first_pet'))
     
-    pets = db.execute('SELECT * FROM pets WHERE user_id = ?', (session['user_id'],)).fetchall()
-    chats = db.execute('''
-        SELECT c.*, p.name as pet_name, ci.image_path
-        FROM chats c 
-        LEFT JOIN pets p ON c.pet_id = p.id 
-        LEFT JOIN chat_images ci ON c.id = ci.chat_id
-        WHERE c.user_id = ? 
-        ORDER BY c.timestamp DESC LIMIT 5
-    ''', (session['user_id'],)).fetchall()
+    if IS_POSTGRES:
+        cursor.execute('SELECT * FROM pets WHERE user_id = %s', (session['user_id'],))
+        pets = cursor.fetchall()
+        cursor.execute('''
+            SELECT c.*, p.name as pet_name, ci.image_path
+            FROM chats c 
+            LEFT JOIN pets p ON c.pet_id = p.id 
+            LEFT JOIN chat_images ci ON c.id = ci.chat_id
+            WHERE c.user_id = %s 
+            ORDER BY c.timestamp DESC LIMIT 5
+        ''', (session['user_id'],))
+        chats = cursor.fetchall()
+    else:
+        pets = db.execute('SELECT * FROM pets WHERE user_id = ?', (session['user_id'],)).fetchall()
+        chats = db.execute('''
+            SELECT c.*, p.name as pet_name, ci.image_path
+            FROM chats c 
+            LEFT JOIN pets p ON c.pet_id = p.id 
+            LEFT JOIN chat_images ci ON c.id = ci.chat_id
+            WHERE c.user_id = ? 
+            ORDER BY c.timestamp DESC LIMIT 5
+        ''', (session['user_id'],)).fetchall()
     
     # Format timestamps
     chats = [{**dict(chat), 'formatted_time': format_chat_timestamp(chat['timestamp'])} 
@@ -220,19 +299,38 @@ def chat():
         return redirect(url_for('login'))
     
     db = get_db()
-    user = db.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    cursor = db.cursor()
+    if IS_POSTGRES:
+        cursor.execute('SELECT * FROM users WHERE id = %s', (session['user_id'],))
+    else:
+        cursor.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],))
+    
+    user = cursor.fetchone()
     if not user['has_onboarded']:
         return redirect(url_for('add_first_pet'))
     
-    pets = db.execute('SELECT * FROM pets WHERE user_id = ?', (session['user_id'],)).fetchall()
-    chats = db.execute('''
-        SELECT c.*, p.name as pet_name, ci.image_path
-        FROM chats c 
-        LEFT JOIN pets p ON c.pet_id = p.id 
-        LEFT JOIN chat_images ci ON c.id = ci.chat_id
-        WHERE c.user_id = ? 
-        ORDER BY c.timestamp DESC LIMIT 10
-    ''', (session['user_id'],)).fetchall()
+    if IS_POSTGRES:
+        cursor.execute('SELECT * FROM pets WHERE user_id = %s', (session['user_id'],))
+        pets = cursor.fetchall()
+        cursor.execute('''
+            SELECT c.*, p.name as pet_name, ci.image_path
+            FROM chats c 
+            LEFT JOIN pets p ON c.pet_id = p.id 
+            LEFT JOIN chat_images ci ON c.id = ci.chat_id
+            WHERE c.user_id = %s 
+            ORDER BY c.timestamp DESC LIMIT 10
+        ''', (session['user_id'],))
+        chats = cursor.fetchall()
+    else:
+        pets = db.execute('SELECT * FROM pets WHERE user_id = ?', (session['user_id'],)).fetchall()
+        chats = db.execute('''
+            SELECT c.*, p.name as pet_name, ci.image_path
+            FROM chats c 
+            LEFT JOIN pets p ON c.pet_id = p.id 
+            LEFT JOIN chat_images ci ON c.id = ci.chat_id
+            WHERE c.user_id = ? 
+            ORDER BY c.timestamp DESC LIMIT 10
+        ''', (session['user_id'],)).fetchall()
     
     # Format timestamps
     chats = [{**dict(chat), 'formatted_time': format_chat_timestamp(chat['timestamp'])} 
@@ -251,10 +349,16 @@ def send_message():
     
     try:
         db = get_db()
+        cursor = db.cursor()
         pet_context = ""
         if pet_id:
-            pet = db.execute('SELECT * FROM pets WHERE id = ? AND user_id = ?', 
-                           (pet_id, session['user_id'])).fetchone()
+            if IS_POSTGRES:
+                cursor.execute('SELECT * FROM pets WHERE id = %s AND user_id = %s', 
+                           (pet_id, session['user_id']))
+            else:
+                cursor.execute('SELECT * FROM pets WHERE id = ? AND user_id = ?', 
+                           (pet_id, session['user_id']))
+            pet = cursor.fetchone()
             if pet:
                 pet_context = f"\nCurrent pet context: {pet['name']} is a {pet['age']} year old {pet['breed']} {pet['species']}. Medical history: {pet['medical_history']}"
 
@@ -277,7 +381,7 @@ def send_message():
             completion = openai.ChatCompletion.create(
                 model="grok-beta",
                 messages=[
-                    {"role": "system", "content": f"You are VetX, an advanced AI veterinarian with extensive knowledge in animal health and care. You provide professional, accurate medical advice while maintaining a caring and reassuring demeanor. You have access to the following context about the pet owner and their pets:{pet_context}"},
+                    {"role": "system", "content": f"You are VetX, an advanced AI veterinarian with extensive knowledge in animal health and care. You provide professional, accurate medical advice whil[...]
                     {"role": "user", "content": message}
                 ]
             )
@@ -285,18 +389,31 @@ def send_message():
         
         # Save chat to database
         timestamp = datetime.utcnow().isoformat()
-        cursor = db.execute('''
-            INSERT INTO chats (message, response, user_id, pet_id, timestamp)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (message, ai_response, session['user_id'], pet_id, timestamp))
-        chat_id = cursor.lastrowid
+        if IS_POSTGRES:
+            cursor.execute('''
+                INSERT INTO chats (message, response, user_id, pet_id, timestamp)
+                VALUES (%s, %s, %s, %s, %s) RETURNING id
+            ''', (message, ai_response, session['user_id'], pet_id, timestamp))
+            chat_id = cursor.fetchone()[0]
+        else:
+            cursor.execute('''
+                INSERT INTO chats (message, response, user_id, pet_id, timestamp)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (message, ai_response, session['user_id'], pet_id, timestamp))
+            chat_id = cursor.lastrowid
         
         # Save image path if image was uploaded
         if image_path:
-            db.execute('''
-                INSERT INTO chat_images (chat_id, image_path, upload_timestamp)
-                VALUES (?, ?, ?)
-            ''', (chat_id, image_path, timestamp))
+            if IS_POSTGRES:
+                cursor.execute('''
+                    INSERT INTO chat_images (chat_id, image_path, upload_timestamp)
+                    VALUES (%s, %s, %s)
+                ''', (chat_id, image_path, timestamp))
+            else:
+                cursor.execute('''
+                    INSERT INTO chat_images (chat_id, image_path, upload_timestamp)
+                    VALUES (?, ?, ?)
+                ''', (chat_id, image_path, timestamp))
         
         db.commit()
         
@@ -316,26 +433,49 @@ def pets():
         return redirect(url_for('login'))
     
     db = get_db()
-    user = db.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    cursor = db.cursor()
+    if IS_POSTGRES:
+        cursor.execute('SELECT * FROM users WHERE id = %s', (session['user_id'],))
+    else:
+        cursor.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],))
+    
+    user = cursor.fetchone()
     if not user['has_onboarded']:
         return redirect(url_for('add_first_pet'))
     
     if request.method == 'POST':
-        db.execute('''
-            INSERT INTO pets (name, species, breed, age, medical_history, user_id)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (
-            request.form.get('name'),
-            request.form.get('species'),
-            request.form.get('breed'),
-            request.form.get('age'),
-            request.form.get('medical_history'),
-            session['user_id']
-        ))
+        if IS_POSTGRES:
+            cursor.execute('''
+                INSERT INTO pets (name, species, breed, age, medical_history, user_id)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            ''', (
+                request.form.get('name'),
+                request.form.get('species'),
+                request.form.get('breed'),
+                request.form.get('age'),
+                request.form.get('medical_history'),
+                session['user_id']
+            ))
+        else:
+            cursor.execute('''
+                INSERT INTO pets (name, species, breed, age, medical_history, user_id)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (
+                request.form.get('name'),
+                request.form.get('species'),
+                request.form.get('breed'),
+                request.form.get('age'),
+                request.form.get('medical_history'),
+                session['user_id']
+            ))
         db.commit()
         return redirect(url_for('pets'))
     
-    pets = db.execute('SELECT * FROM pets WHERE user_id = ?', (session['user_id'],)).fetchall()
+    if IS_POSTGRES:
+        cursor.execute('SELECT * FROM pets WHERE user_id = %s', (session['user_id'],))
+        pets = cursor.fetchall()
+    else:
+        pets = db.execute('SELECT * FROM pets WHERE user_id = ?', (session['user_id'],)).fetchall()
     return render_template('profile/pets.html', pets=pets)
 
 if __name__ == '__main__':
