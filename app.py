@@ -381,7 +381,7 @@ def send_message():
             completion = openai.ChatCompletion.create(
                 model="grok-beta",
                 messages=[
-                    {"role": "system", "content": f"You are VetX, an advanced AI veterinarian with extensive knowledge in animal health and care. You provide professional, accurate medical advice whil[...] 
+                    {"role": "system", "content": f"You are VetX, an advanced AI veterinarian with extensive knowledge in animal health and care. You provide professional, accurate medical advice while assisting pet owners with their pets' health needs."} 
                     {"role": "user", "content": message}
                 ]
             )
