@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PetMagix - Add Your Pet</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .onboarding-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .onboarding-content {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: var(--shadow);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .onboarding-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--light-gray);
+        }
+
+        .onboarding-header h1 {
+            color: var(--primary);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .onboarding-header p {
+            color: var(--dark-gray);
+            opacity: 0.8;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .pet-form {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .onboarding-tips {
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--light-gray);
+            text-align: center;
+        }
+
+        .onboarding-tips h3 {
+            color: var(--primary);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .tips-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .tip-card {
+            background: var(--gray);
+            padding: 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .tip-card i {
+            font-size: 2rem;
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+
+        .onboarding-progress {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            margin-top: 3rem;
+        }
+
+        .progress-step {
+            text-align: center;
+            position: relative;
+        }
+
+        .progress-step::after {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 100%;
+            width: 100%;
+            height: 2px;
+            background: var(--light-gray);
+        }
+
+        .progress-step:last-child::after {
+            display: none;
+        }
+
+        .progress-step.completed .step-number,
+        .progress-step.active .step-number {
+            background: var(--primary);
+            color: var(--white);
+        }
+
+        .step-number {
+            width: 40px;
+            height: 40px;
+            line-height: 40px;
+            border-radius: 50%;
+            background: var(--light-gray);
+            margin: 0 auto 0.5rem;
+            font-weight: 600;
+        }
+
+        .step-label {
+            color: var(--dark-gray);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .onboarding-container {
+                padding: 1rem;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .onboarding-progress {
+                gap: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <img src="{{ url_for('static', filename='images/Group 1.svg') }}" alt="PetMagix Logo" class="logo">
+        </div>
+    </nav>
+
+    <div class="onboarding-container">
+        <div class="onboarding-content">
+            <div class="onboarding-header">
+                <h1><i class="fas fa-paw"></i> Welcome to PetMagix!</h1>
+                <p>Let's start by adding your first pet. This information helps VetX provide personalized care advice and keep track of your pet's health history.</p>
+            </div>
+
+            <form method="POST" action="{{ url_for('add_first_pet') }}" class="pet-form">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="name">Pet's Name</label>
+                        <div class="input-group">
+                            <i class="fas fa-tag"></i>
+                            <input type="text" id="name" name="name" required 
+                                   placeholder="What's your pet's name?">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="species">Species</label>
+                        <div class="input-group">
+                            <i class="fas fa-paw"></i>
+                            <select id="species" name="species" required>
+                                <option value="">Select species</option>
+                                <option value="Dog">Dog</option>
+                                <option value="Cat">Cat</option>
+                                <option value="Bird">Bird</option>
+                                <option value="Fish">Fish</option>
+                                <option value="Rabbit">Rabbit</option>
+                                <option value="Hamster">Hamster</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="breed">Breed</label>
+                        <div class="input-group">
+                            <i class="fas fa-dna"></i>
+                            <input type="text" id="breed" name="breed" required 
+                                   placeholder="What breed is your pet?">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="age">Age (years)</label>
+                        <div class="input-group">
+                            <i class="fas fa-birthday-cake"></i>
+                            <input type="number" id="age" name="age" min="0" max="30" required 
+                                   placeholder="How old is your pet?">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="medical_history">Medical History</label>
+                    <div class="input-group">
+                        <textarea id="medical_history" name="medical_history" rows="4" 
+                                  placeholder="Include any important health information, vaccinations, or medical conditions..."></textarea>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block">
+                    <i class="fas fa-plus-circle"></i> Add Pet & Continue
+                </button>
+            </form>
+
+            <div class="onboarding-tips">
+                <h3><i class="fas fa-lightbulb"></i> Why This Matters</h3>
+                <div class="tips-grid">
+                    <div class="tip-card">
+                        <i class="fas fa-stethoscope"></i>
+                        <p>Helps VetX provide accurate medical advice</p>
+                    </div>
+                    <div class="tip-card">
+                        <i class="fas fa-history"></i>
+                        <p>Tracks your pet's health history</p>
+                    </div>
+                    <div class="tip-card">
+                        <i class="fas fa-bell"></i>
+                        <p>Enables personalized care reminders</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="onboarding-progress">
+            <div class="progress-step completed">
+                <div class="step-number">1</div>
+                <div class="step-label">Sign Up</div>
+            </div>
+            <div class="progress-step active">
+                <div class="step-number">2</div>
+                <div class="step-label">Add Pet</div>
+            </div>
+            <div class="progress-step">
+                <div class="step-number">3</div>
+                <div class="step-label">Dashboard</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dynamic species-breed suggestions
+        const speciesBreeds = {
+            'Dog': ['Labrador Retriever', 'German Shepherd', 'Golden Retriever', 'French Bulldog', 'Mixed Breed'],
+            'Cat': ['Persian', 'Siamese', 'Maine Coon', 'British Shorthair', 'Mixed Breed'],
+            'Bird': ['Parakeet', 'Cockatiel', 'Canary', 'Parrot', 'Finch'],
+            'Fish': ['Goldfish', 'Betta', 'Guppy', 'Tetra', 'Angel Fish'],
+            'Rabbit': ['Holland Lop', 'Mini Rex', 'Netherland Dwarf', 'Dutch', 'Mixed Breed'],
+            'Hamster': ['Syrian', 'Dwarf Campbell', 'Winter White', 'Roborovski', 'Chinese']
+        };
+
+        const speciesSelect = document.getElementById('species');
+        const breedInput = document.getElementById('breed');
+
+        speciesSelect.addEventListener('change', function() {
+            const breeds = speciesBreeds[this.value] || [];
+            if (breeds.length > 0) {
+                const datalist = document.createElement('datalist');
+                datalist.id = 'breed-suggestions';
+                breeds.forEach(breed => {
+                    const option = document.createElement('option');
+                    option.value = breed;
+                    datalist.appendChild(option);
+                });
+                breedInput.setAttribute('list', 'breed-suggestions');
+                document.body.appendChild(datalist);
+            }
+        });
+
+        // Form submission
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const button = this.querySelector('button[type="submit"]');
+            button.innerHTML = '<div class="spinner"></div> Adding Pet...';
+            button.disabled = true;
+        });
+    </script>
+</body>
+</html>

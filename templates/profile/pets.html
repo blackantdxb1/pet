@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PetMagix - Pet Profiles</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .pets-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .pets-header {
+            background: var(--white);
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .pets-header h1 {
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 2rem;
+            margin: 0;
+        }
+
+        .pets-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+        }
+
+        .pet-card {
+            background: var(--white);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .pet-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .pet-header {
+            background: var(--primary);
+            padding: 2rem;
+            color: var(--white);
+            position: relative;
+        }
+
+        .pet-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: 4px solid var(--white);
+            object-fit: cover;
+            margin-bottom: 1rem;
+        }
+
+        .pet-name {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .pet-type {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .pet-details {
+            padding: 2rem;
+        }
+
+        .detail-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: var(--gray);
+            border-radius: 8px;
+            transition: var(--transition);
+        }
+
+        .detail-item:hover {
+            background: var(--light-gray);
+        }
+
+        .detail-item i {
+            color: var(--primary);
+            font-size: 1.25rem;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            color: var(--dark-gray);
+        }
+
+        .detail-value {
+            margin-left: auto;
+            color: var(--dark-gray);
+        }
+
+        .pet-actions {
+            padding: 1.5rem 2rem;
+            border-top: 1px solid var(--light-gray);
+            display: flex;
+            gap: 1rem;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: var(--white);
+            border-radius: 16px;
+            max-width: 500px;
+            width: 90%;
+            margin: 2rem auto;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--light-gray);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            color: var(--primary);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .modal-footer {
+            padding: 1.5rem;
+            border-top: 1px solid var(--light-gray);
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .pets-header {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+
+            .pets-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .modal-content {
+                margin: 1rem;
+                width: calc(100% - 2rem);
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <img src="{{ url_for('static', filename='images/Group 1.svg') }}" alt="PetMagix Logo" class="logo">
+            <div class="nav-links">
+                <a href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-home"></i> Dashboard
+                </a>
+                <a href="{{ url_for('chat') }}">
+                    <i class="fas fa-comments"></i> Chat with VetX
+                </a>
+                <a href="{{ url_for('pets') }}" class="active">
+                    <i class="fas fa-paw"></i> Pet Profiles
+                </a>
+                <a href="{{ url_for('logout') }}" class="logout-link">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="pets-container">
+        <div class="pets-header">
+            <h1><i class="fas fa-paw"></i> Your Pets</h1>
+            <button onclick="showAddPetModal()" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Add New Pet
+            </button>
+        </div>
+
+        <div class="pets-grid">
+            {% if pets %}
+                {% for pet in pets %}
+                    <div class="pet-card">
+                        <div class="pet-header">
+                            <img src="{{ url_for('static', filename='images/default-pet.png') }}" 
+                                 alt="{{ pet['name'] }}" class="pet-avatar">
+                            <h2 class="pet-name">{{ pet['name'] }}</h2>
+                            <p class="pet-type">{{ pet['species'] }} • {{ pet['breed'] }}</p>
+                        </div>
+                        <div class="pet-details">
+                            <div class="detail-item">
+                                <i class="fas fa-birthday-cake"></i>
+                                <span class="detail-label">Age</span>
+                                <span class="detail-value">{{ pet['age'] }} years</span>
+                            </div>
+                            <div class="detail-item">
+                                <i class="fas fa-notes-medical"></i>
+                                <span class="detail-label">Medical History</span>
+                            </div>
+                            <p class="medical-history">{{ pet['medical_history'] or 'No medical history recorded.' }}</p>
+                        </div>
+                        <div class="pet-actions">
+                            <a href="{{ url_for('chat') }}?pet_id={{ pet['id'] }}" class="btn btn-primary">
+                                <i class="fas fa-comment-medical"></i> Ask VetX
+                            </a>
+                            <button onclick="showEditPetModal({{ pet['id'] }}, '{{ pet['name'] }}', '{{ pet['species'] }}', '{{ pet['breed'] }}', {{ pet['age'] }}, `{{ pet['medical_history'] or '' }}`)" 
+                                    class="btn btn-secondary">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-paw"></i>
+                    <h2>No Pets Added Yet</h2>
+                    <p>Add your first pet to get started with personalized care advice</p>
+                    <button onclick="showAddPetModal()" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Add Your First Pet
+                    </button>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Add/Edit Pet Modal -->
+    <div id="petModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle"></h2>
+                <button onclick="hidePetModal()" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="petForm" method="POST" action="{{ url_for('pets') }}">
+                    <input type="hidden" id="pet_id" name="pet_id">
+                    
+                    <div class="form-group">
+                        <label for="name">Pet's Name</label>
+                        <div class="input-group">
+                            <i class="fas fa-paw"></i>
+                            <input type="text" id="name" name="name" required 
+                                   placeholder="What's your pet's name?">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="species">Species</label>
+                        <div class="input-group">
+                            <i class="fas fa-dog"></i>
+                            <select id="species" name="species" required>
+                                <option value="">Select species</option>
+                                <option value="Dog">Dog</option>
+                                <option value="Cat">Cat</option>
+                                <option value="Bird">Bird</option>
+                                <option value="Fish">Fish</option>
+                                <option value="Rabbit">Rabbit</option>
+                                <option value="Hamster">Hamster</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="breed">Breed</label>
+                        <div class="input-group">
+                            <i class="fas fa-dna"></i>
+                            <input type="text" id="breed" name="breed" required 
+                                   placeholder="What breed is your pet?">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="age">Age (years)</label>
+                        <div class="input-group">
+                            <i class="fas fa-birthday-cake"></i>
+                            <input type="number" id="age" name="age" required min="0" max="30" 
+                                   placeholder="How old is your pet?">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="medical_history">Medical History</label>
+                        <div class="input-group">
+                            <textarea id="medical_history" name="medical_history" rows="4" 
+                                      placeholder="Include any important health information, vaccinations, or medical conditions..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" onclick="hidePetModal()" class="btn btn-secondary">
+                            Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Save Pet
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showAddPetModal() {
+            document.getElementById('modalTitle').innerHTML = '<i class="fas fa-plus-circle"></i> Add New Pet';
+            document.getElementById('petForm').reset();
+            document.getElementById('pet_id').value = '';
+            document.getElementById('petModal').style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function showEditPetModal(id, name, species, breed, age, medical_history) {
+            document.getElementById('modalTitle').innerHTML = '<i class="fas fa-edit"></i> Edit Pet';
+            document.getElementById('pet_id').value = id;
+            document.getElementById('name').value = name;
+            document.getElementById('species').value = species;
+            document.getElementById('breed').value = breed;
+            document.getElementById('age').value = age;
+            document.getElementById('medical_history').value = medical_history;
+            document.getElementById('petModal').style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function hidePetModal() {
+            document.getElementById('petModal').style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('petModal');
+            if (event.target === modal) {
+                hidePetModal();
+            }
+        }
+
+        // Species-breed suggestions
+        const speciesBreeds = {
+            'Dog': ['Labrador Retriever', 'German Shepherd', 'Golden Retriever', 'French Bulldog', 'Mixed Breed'],
+            'Cat': ['Persian', 'Siamese', 'Maine Coon', 'British Shorthair', 'Mixed Breed'],
+            'Bird': ['Parakeet', 'Cockatiel', 'Canary', 'Parrot', 'Finch'],
+            'Fish': ['Goldfish', 'Betta', 'Guppy', 'Tetra', 'Angel Fish'],
+            'Rabbit': ['Holland Lop', 'Mini Rex', 'Netherland Dwarf', 'Dutch', 'Mixed Breed'],
+            'Hamster': ['Syrian', 'Dwarf Campbell', 'Winter White', 'Roborovski', 'Chinese']
+        };
+
+        document.getElementById('species').addEventListener('change', function() {
+            const breeds = speciesBreeds[this.value] || [];
+            if (breeds.length > 0) {
+                const datalist = document.createElement('datalist');
+                datalist.id = 'breed-suggestions';
+                breeds.forEach(breed => {
+                    const option = document.createElement('option');
+                    option.value = breed;
+                    datalist.appendChild(option);
+                });
+                document.getElementById('breed').setAttribute('list', 'breed-suggestions');
+                document.body.appendChild(datalist);
+            }
+        });
+
+        // Form submission
+        document.getElementById('petForm').addEventListener('submit', function(e) {
+            const button = this.querySelector('button[type="submit"]');
+            button.innerHTML = '<div class="spinner"></div> Saving...';
+            button.disabled = true;
+        });
+    </script>
+</body>
+</html>

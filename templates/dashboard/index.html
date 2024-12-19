@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PetMagix - Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .welcome-banner {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            padding: 3rem 2rem;
+            border-radius: 16px;
+            color: var(--white);
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow);
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .welcome-banner h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .welcome-banner p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            max-width: 600px;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .quick-action-btn {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1rem;
+            border-radius: 12px;
+            text-decoration: none;
+            color: var(--white);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: var(--transition);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .quick-action-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .dashboard-card {
+            background: var(--white);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-header {
+            background: var(--primary);
+            padding: 1.5rem;
+            color: var(--white);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-header h2 {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.25rem;
+            margin: 0;
+        }
+
+        .card-header .btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--white);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .card-header .btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .card-content {
+            padding: 1.5rem;
+        }
+
+        .pet-list {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .pet-item {
+            background: var(--gray);
+            padding: 1.5rem;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            transition: var(--transition);
+        }
+
+        .pet-item:hover {
+            transform: translateX(5px);
+            background: var(--light-gray);
+        }
+
+        .pet-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--white);
+        }
+
+        .pet-info {
+            flex: 1;
+        }
+
+        .pet-info h3 {
+            color: var(--primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .pet-info p {
+            color: var(--dark-gray);
+            opacity: 0.8;
+        }
+
+        .chat-list {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .chat-item {
+            background: var(--gray);
+            padding: 1.5rem;
+            border-radius: 12px;
+            transition: var(--transition);
+        }
+
+        .chat-item:hover {
+            transform: translateX(5px);
+            background: var(--light-gray);
+        }
+
+        .chat-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            color: var(--primary);
+            font-weight: 500;
+        }
+
+        .chat-message {
+            color: var(--dark-gray);
+            margin-bottom: 0.5rem;
+        }
+
+        .chat-time {
+            color: var(--dark-gray);
+            opacity: 0.6;
+            font-size: 0.8rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            background: var(--gray);
+            border-radius: 12px;
+            margin-top: 1rem;
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+
+        .empty-state h3 {
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .empty-state p {
+            color: var(--dark-gray);
+            opacity: 0.8;
+            margin-bottom: 1.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .welcome-banner {
+                padding: 2rem 1.5rem;
+                text-align: center;
+            }
+
+            .welcome-banner h1 {
+                justify-content: center;
+            }
+
+            .quick-actions {
+                grid-template-columns: 1fr;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <img src="{{ url_for('static', filename='images/Group 1.svg') }}" alt="PetMagix Logo" class="logo">
+            <div class="nav-links">
+                <a href="{{ url_for('dashboard') }}" class="active">
+                    <i class="fas fa-home"></i> Dashboard
+                </a>
+                <a href="{{ url_for('chat') }}">
+                    <i class="fas fa-comments"></i> Chat with VetX
+                </a>
+                <a href="{{ url_for('pets') }}">
+                    <i class="fas fa-paw"></i> Pet Profiles
+                </a>
+                <a href="{{ url_for('logout') }}" class="logout-link">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="dashboard-container">
+        <div class="welcome-banner">
+            <h1><i class="fas fa-paw"></i> Welcome Back! 👋</h1>
+            <p>Here's what's happening with your pets</p>
+            <div class="quick-actions">
+                <a href="{{ url_for('chat') }}" class="quick-action-btn">
+                    <i class="fas fa-comment-medical"></i> Chat with VetX
+                </a>
+                <a href="{{ url_for('pets') }}" class="quick-action-btn">
+                    <i class="fas fa-plus"></i> Add New Pet
+                </a>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- Pet Profiles Section -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h2><i class="fas fa-paw"></i> Your Pets</h2>
+                    <a href="{{ url_for('pets') }}" class="btn btn-sm">View All</a>
+                </div>
+                <div class="card-content">
+                    {% if pets %}
+                        <div class="pet-list">
+                            {% for pet in pets %}
+                                <div class="pet-item">
+                                    <img src="{{ url_for('static', filename='images/default-pet.png') }}" 
+                                         alt="{{ pet['name'] }}" class="pet-avatar">
+                                    <div class="pet-info">
+                                        <h3>{{ pet['name'] }}</h3>
+                                        <p>{{ pet['species'] }} • {{ pet['breed'] }}</p>
+                                        <p class="pet-age">{{ pet['age'] }} years old</p>
+                                    </div>
+                                    <a href="{{ url_for('chat') }}?pet_id={{ pet['id'] }}" class="btn btn-primary btn-sm">
+                                        <i class="fas fa-comment"></i> Ask About
+                                    </a>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <i class="fas fa-paw"></i>
+                            <h3>No Pets Added Yet</h3>
+                            <p>Add your first pet to get started with personalized care advice</p>
+                            <a href="{{ url_for('pets') }}" class="btn btn-primary">Add Your First Pet</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Recent Chats Section -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h2><i class="fas fa-comments"></i> Recent Conversations</h2>
+                    <a href="{{ url_for('chat') }}" class="btn btn-sm">View All</a>
+                </div>
+                <div class="card-content">
+                    {% if chats %}
+                        <div class="chat-list">
+                            {% for chat in chats %}
+                                <div class="chat-item">
+                                    <div class="chat-header">
+                                        <i class="fas fa-comment"></i>
+                                        {% if chat['pet_name'] %}
+                                            <span>About {{ chat['pet_name'] }}</span>
+                                        {% endif %}
+                                    </div>
+                                    <p class="chat-message">{{ chat['message'][:100] }}{% if chat['message']|length > 100 %}...{% endif %}</p>
+                                    <small class="chat-time">{{ chat['formatted_time'] }}</small>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <i class="fas fa-comments"></i>
+                            <h3>No Conversations Yet</h3>
+                            <p>Start chatting with VetX to get personalized advice for your pets</p>
+                            <a href="{{ url_for('chat') }}" class="btn btn-primary">Start Chatting</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

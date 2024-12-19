@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PetMagix - Chat with VetX</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .image-upload-preview {
+            max-width: 200px;
+            max-height: 200px;
+            margin-top: 1rem;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .chat-image {
+            max-width: 300px;
+            max-height: 300px;
+            border-radius: 8px;
+            margin-top: 0.5rem;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+        
+        .chat-image:hover {
+            transform: scale(1.05);
+        }
+        
+        .image-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 2000;
+            cursor: pointer;
+        }
+        
+        .image-modal img {
+            max-width: 90%;
+            max-height: 90vh;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 8px;
+        }
+        
+        .image-upload-btn {
+            background: none;
+            border: none;
+            color: var(--primary);
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 50%;
+            transition: background-color 0.3s ease;
+        }
+        
+        .image-upload-btn:hover {
+            background-color: var(--gray);
+        }
+        
+        .image-upload-container {
+            position: relative;
+            display: inline-block;
+        }
+        
+        #imageInput {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <img src="{{ url_for('static', filename='images/Group 1.svg') }}" alt="PetMagix Logo" class="logo">
+            <div class="nav-links">
+                <a href="{{ url_for('dashboard') }}">
+                    <i class="fas fa-home"></i> Dashboard
+                </a>
+                <a href="{{ url_for('chat') }}" class="active">
+                    <i class="fas fa-comments"></i> Chat with VetX
+                </a>
+                <a href="{{ url_for('pets') }}">
+                    <i class="fas fa-paw"></i> Pet Profiles
+                </a>
+                <a href="{{ url_for('logout') }}" class="logout-link">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="chat-container">
+        <div class="chat-sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-paw"></i> Your Pets</h2>
+            </div>
+            <div class="pet-list">
+                {% for pet in pets %}
+                    <div class="pet-item {% if request.args.get('pet_id')|int == pet['id'] %}active{% endif %}"
+                         onclick="selectPet({{ pet['id'] }})">
+                        <img src="{{ url_for('static', filename='images/default-pet.png') }}" 
+                             alt="{{ pet['name'] }}" class="pet-avatar">
+                        <div class="pet-info">
+                            <h3>{{ pet['name'] }}</h3>
+                            <p>{{ pet['species'] }} • {{ pet['breed'] }}</p>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="chat-main">
+            <div class="chat-header">
+                <div class="ai-profile">
+                    <i class="fas fa-robot"></i>
+                    <div>
+                        <h2>VetX</h2>
+                        <p>AI Veterinary Assistant</p>
+                    </div>
+                </div>
+                <div class="selected-pet">
+                    <span id="currentPetContext">
+                        {% if request.args.get('pet_id') %}
+                            {% for pet in pets %}
+                                {% if pet['id']|string == request.args.get('pet_id') %}
+                                    Discussing: {{ pet['name'] }}
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            Select a pet for personalized advice
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <div class="chat-messages" id="chat-messages">
+                <!-- Welcome Message -->
+                <div class="message bot-message">
+                    <div class="message-content">
+                        <div class="message-header">
+                            <i class="fas fa-robot"></i>
+                            <span>VetX</span>
+                        </div>
+                        <p>Hi! I'm VetX, your AI veterinary assistant. I can help with text questions and analyze images of your pets!</p>
+                        {% if request.args.get('pet_id') %}
+                            {% for pet in pets %}
+                                {% if pet['id']|string == request.args.get('pet_id') %}
+                                    <p>I see we're talking about {{ pet['name'] }}! How can I help today?</p>
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <p>Select a pet from the sidebar for personalized advice, or ask any general pet care questions!</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% for chat in chats %}
+                    <div class="message user-message">
+                        <div class="message-content">
+                            <div class="message-header">
+                                <i class="fas fa-user"></i>
+                                <span>You</span>
+                            </div>
+                            <p>{{ chat['message'] }}</p>
+                            {% if chat['image_path'] %}
+                                <img src="{{ url_for('static', filename=chat['image_path']) }}" 
+                                     alt="Uploaded image" class="chat-image"
+                                     onclick="showImageModal(this.src)">
+                            {% endif %}
+                            <small class="message-time">{{ chat['formatted_time'] }}</small>
+                        </div>
+                    </div>
+                    <div class="message bot-message">
+                        <div class="message-content">
+                            <div class="message-header">
+                                <i class="fas fa-robot"></i>
+                                <span>VetX</span>
+                            </div>
+                            <p>{{ chat['response'] }}</p>
+                            <small class="message-time">{{ chat['formatted_time'] }}</small>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div class="chat-input-container">
+                <form id="chat-form" class="chat-input-form">
+                    <input type="hidden" id="pet_id" name="pet_id" value="{{ request.args.get('pet_id', '') }}">
+                    <div class="input-group">
+                        <textarea 
+                            id="chat-input" 
+                            placeholder="Type your message here..."
+                            rows="1"
+                        ></textarea>
+                        <div class="image-upload-container">
+                            <input type="file" id="imageInput" accept="image/*">
+                            <button type="button" class="image-upload-btn" onclick="document.getElementById('imageInput').click()">
+                                <i class="fas fa-image"></i>
+                            </button>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    <img id="imagePreview" class="image-upload-preview">
+                </form>
+                <div class="chat-suggestions">
+                    <button onclick="suggestQuestion('What vaccinations does my pet need?')" class="suggestion-btn">
+                        Vaccination Schedule
+                    </button>
+                    <button onclick="suggestQuestion('What are common signs of illness I should watch for?')" class="suggestion-btn">
+                        Illness Signs
+                    </button>
+                    <button onclick="suggestQuestion('What is the recommended diet?')" class="suggestion-btn">
+                        Diet Advice
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Modal -->
+    <div id="imageModal" class="image-modal" onclick="hideImageModal()">
+        <img id="modalImage" src="" alt="Full size image">
+    </div>
+
+    <script>
+        const chatMessages = document.getElementById('chat-messages');
+        const chatForm = document.getElementById('chat-form');
+        const chatInput = document.getElementById('chat-input');
+        const petIdInput = document.getElementById('pet_id');
+        const imageInput = document.getElementById('imageInput');
+        const imagePreview = document.getElementById('imagePreview');
+
+        // Auto-scroll to bottom
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        scrollToBottom();
+
+        // Image preview
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    imagePreview.style.display = 'block';
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Image modal
+        function showImageModal(src) {
+            document.getElementById('modalImage').src = src;
+            document.getElementById('imageModal').style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function hideImageModal() {
+            document.getElementById('imageModal').style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        // Select pet
+        function selectPet(petId) {
+            petIdInput.value = petId;
+            // Update URL without reloading
+            const newUrl = new URL(window.location);
+            newUrl.searchParams.set('pet_id', petId);
+            window.history.pushState({}, '', newUrl);
+            // Reload page to update context
+            window.location.reload();
+        }
+
+        // Suggest question
+        function suggestQuestion(question) {
+            chatInput.value = question;
+            chatInput.focus();
+        }
+
+        // Handle form submission
+        chatForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const message = chatInput.value.trim();
+            if (!message) return;
+
+            // Disable input and show loading
+            chatInput.disabled = true;
+            const button = this.querySelector('button[type="submit"]');
+            button.disabled = true;
+            button.innerHTML = '<div class="spinner"></div>';
+
+            // Create FormData for file upload
+            const formData = new FormData();
+            formData.append('message', message);
+            formData.append('pet_id', petIdInput.value);
+            
+            if (imageInput.files[0]) {
+                formData.append('image', imageInput.files[0]);
+            }
+
+            // Add user message
+            const userMessageDiv = document.createElement('div');
+            userMessageDiv.className = 'message user-message';
+            const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+            
+            let messageHTML = `
+                <div class="message-content">
+                    <div class="message-header">
+                        <i class="fas fa-user"></i>
+                        <span>You</span>
+                    </div>
+                    <p>${message}</p>
+            `;
+
+            if (imageInput.files[0]) {
+                messageHTML += `<img src="${imagePreview.src}" alt="Uploaded image" class="chat-image">`;
+            }
+
+            messageHTML += `<small class="message-time">${time}</small></div>`;
+            userMessageDiv.innerHTML = messageHTML;
+            chatMessages.appendChild(userMessageDiv);
+            scrollToBottom();
+
+            try {
+                // Send message to server
+                const response = await fetch('/chat/send', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                // Add AI response
+                const botMessageDiv = document.createElement('div');
+                botMessageDiv.className = 'message bot-message';
+                botMessageDiv.innerHTML = `
+                    <div class="message-content">
+                        <div class="message-header">
+                            <i class="fas fa-robot"></i>
+                            <span>VetX</span>
+                        </div>
+                        <p>${data.response}</p>
+                        <small class="message-time">${time}</small>
+                    </div>
+                `;
+                chatMessages.appendChild(botMessageDiv);
+                scrollToBottom();
+
+            } catch (error) {
+                console.error('Error:', error);
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'message bot-message error';
+                errorDiv.innerHTML = `
+                    <div class="message-content">
+                        <div class="message-header">
+                            <i class="fas fa-exclamation-circle"></i>
+                            <span>Error</span>
+                        </div>
+                        <p>Sorry, there was an error processing your message. Please try again.</p>
+                    </div>
+                `;
+                chatMessages.appendChild(errorDiv);
+                scrollToBottom();
+            }
+
+            // Reset form
+            chatInput.value = '';
+            chatInput.disabled = false;
+            button.disabled = false;
+            button.innerHTML = '<i class="fas fa-paper-plane"></i>';
+            imageInput.value = '';
+            imagePreview.style.display = 'none';
+            
+            // Reset textarea height
+            chatInput.style.height = 'auto';
+        });
+
+        // Auto-resize textarea
+        chatInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+
+        // Handle enter key
+        chatInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                chatForm.dispatchEvent(new Event('submit'));
+            }
+        });
+    </script>
+</body>
+</html>
